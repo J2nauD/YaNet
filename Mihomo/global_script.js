@@ -1,6 +1,7 @@
 /***
  * Clash Verge Rev / Mihomo Party 优化脚本
  * 原作者: dahaha-365 (YaNet)
+ * J2nauD 修改：保留订阅的 DNS、IPv6 和 DNS 劫持设置。
  * Github：https://github.com/dahaha-365/YaNet
  */
 
@@ -18,12 +19,6 @@ function stringToArray(val) {
 const _skipIps =
   '10.0.0.0/8;100.64.0.0/10;127.0.0.0/8;169.254.0.0/16;172.16.0.0/12;192.168.0.0/16;198.18.0.0/16;FC00::/7;FE80::/10;::1/128'
 
-// DNS 配置
-const _chinaDohDns = 'https://doh.pub/dns-query;https://dns.alidns.com/dns-query'
-const _foreignDohDns = 'https://dns.google/dns-query;https://dns.adguard-dns.com/dns-query'
-const _chinaIpDns = '119.29.29.29;223.5.5.5'
-const _foreignIpDns = '8.8.8.8;94.140.14.14'
-
 const defaultArgs = {
   enable: true,
   ruleSet: 'all',
@@ -32,15 +27,7 @@ const defaultArgs = {
   excludeHighPercentage: true,
   globalRatioLimit: 2,
   skipIps: _skipIps,
-  defaultDNS: _chinaIpDns,
-  directDNS: _chinaIpDns,
-  chinaDNS: _chinaDohDns,
-  foreignDNS: _foreignDohDns,
-  dns: true,
   sniffer: false,
-  mode: 'default',
-  ipv6: false,
-  logLevel: 'error',
   githubProxy: '',
 }
 
@@ -81,60 +68,11 @@ let {
   excludeHighPercentage = !!args.excludeHighPercentage || false,
   globalRatioLimit = args.globalRatioLimit || 2,
   skipIps = args.skipIps || _skipIps,
-  defaultDNS = args.defaultDNS || _chinaIpDns,
-  directDNS = args.directDNS || _chinaIpDns,
-  chinaDNS = args.chinaDNS || _chinaDohDns,
-  foreignDNS = args.foreignDNS || _foreignDohDns,
-  dns = args.dns || false,
   sniffer = args.sniffer || false,
-  mode = args.mode || '',
-  ipv6 = args.ipv6 || false,
-  logLevel = args.logLevel || 'error',
   githubProxy = args.githubProxy || '',
 } = args
 
-/**
- * 模式配置
- */
-if (['securest', 'secure', 'default', 'fast', 'fastest'].includes(mode)) {
-  switch (mode) {
-    case 'securest':
-      defaultDNS = _foreignIpDns
-      directDNS = _foreignDohDns
-      break
-    case 'secure':
-      defaultDNS = _foreignIpDns
-      directDNS = _chinaDohDns
-      chinaDNS = _chinaDohDns
-      foreignDNS = _foreignDohDns
-      break
-    case 'fast':
-      defaultDNS = _chinaIpDns
-      directDNS = _chinaIpDns
-      chinaDNS = _chinaIpDns
-      foreignDNS = _chinaDohDns
-      break
-    case 'fastest':
-      defaultDNS = _chinaIpDns
-      directDNS = _chinaIpDns
-      chinaDNS = _chinaIpDns
-      foreignDNS = _chinaIpDns
-      break
-    default:
-      defaultDNS = _chinaIpDns
-      directDNS = _chinaIpDns
-      chinaDNS = _chinaDohDns
-      foreignDNS = _chinaDohDns
-      break
-  }
-}
-
 skipIps = stringToArray(skipIps)
-defaultDNS = stringToArray(defaultDNS)
-directDNS = stringToArray(directDNS)
-chinaDNS = stringToArray(chinaDNS)
-foreignDNS = stringToArray(foreignDNS)
-
 /**
  * 分流规则配置，会自动生成对应的策略组
  * 设置的时候可遵循“最小，可用”原则，把自己不需要的规则全禁用掉，提高效率
@@ -277,51 +215,6 @@ if (regionSet === 'all') {
     const prefix = r.name.substring(0, 2) // 获取前两个字母
     return enabledRegions.includes(prefix)
   })
-}
-
-const dnsConfig = {
-  enable: !!dns,
-  listen: '0.0.0.0:1053',
-  ipv6: !!ipv6,
-  'log-level': logLevel,
-  'prefer-h3': false,
-  'use-hosts': true,
-  'use-system-hosts': true,
-  'respect-rules': true,
-  'enhanced-mode': 'fake-ip',
-  'fake-ip-range': '198.18.0.0/16',
-  'fake-ip-filter-mode': 'whitelist',
-  'fake-ip-filter': [
-    'geosite:jetbrains-ai',
-    'geosite:category-ai-!cn',
-    'geosite:category-ai-chat-!cn',
-    'geosite:category-games-!cn',
-    'geosite:category-cdn-!cn',
-    'geosite:telegram',
-    // 'geosite:x',
-    'geosite:google',
-    'geosite:amazon',
-    'geosite:category-bank-jp',
-    'geosite:category-communication',
-    'geosite:gfw',
-    // 'geosite:geolocation-!cn',
-  ],
-  nameserver: chinaDNS,
-  'default-nameserver': defaultDNS,
-  'direct-nameserver': directDNS,
-  // fallback: foreignDNS,
-  // 'fallback-filter': {
-  //   geoip: true,
-  //   'geoip-code': 'CN',
-  // },
-  'proxy-server-nameserver': chinaDNS,
-  'nameserver-policy': {
-    'geosite:private': 'system',
-    'geosite:tld-cn,cn,steam@cn,category-games@cn,microsoft@cn,apple@cn,category-game-platforms-download@cn,category-public-tracker':
-      chinaDNS,
-    'geosite:gfw,jetbrains-ai,category-ai-!cn,category-ai-chat-!cn': foreignDNS,
-    // 'geosite:telegram': foreignDNS,
-  },
 }
 
 // 通用配置
@@ -576,7 +469,6 @@ function main(config) {
   config['allow-lan'] = true
   config['bind-address'] = '*'
   config['mode'] = 'rule'
-  config['ipv6'] = !!ipv6
   config['external-controller'] = '127.0.0.1:9090'
   config['external-controller-cors'] = {
     'allow-origins': ['*'],
@@ -590,16 +482,9 @@ function main(config) {
   config['tproxy-port'] = 7894
   config['external-ui'] = 'ui'
   config['external-ui-url'] = `${githubProxy}https://github.com/Zephyruso/zashboard/releases/latest/download/dist.zip`
-  if (config.dns?.['proxy-server-nameserver']) {
-    dnsConfig['proxy-server-nameserver'] = config.dns?.['proxy-server-nameserver']
-  }
-  if (config.dns?.['proxy-server-nameserver-policy']) {
-    dnsConfig['proxy-server-nameserver-policy'] = config.dns?.['proxy-server-nameserver-policy']
-  }
-  config['dns'] = dnsConfig
   config['profile'] = {
+    ...config.profile,
     'store-selected': true,
-    'store-fake-ip': true,
   }
   config['unified-delay'] = true
   config['tcp-concurrent'] = true
@@ -663,7 +548,7 @@ function main(config) {
     'gso-max-size': 65536,
     'exclude-interface': ['NodeBabyLink'],
     'route-exclude-address': skipIps.filter((ip) => ip !== '198.18.0.0/16'),
-    'dns-hijack': ['any:53', 'tcp://any:53'],
+    ...(config.tun?.['dns-hijack'] !== undefined && { 'dns-hijack': config.tun['dns-hijack'] }),
   }
   config['geox-url'] = {
     geoip: `${githubProxy}https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip-lite.dat`,
